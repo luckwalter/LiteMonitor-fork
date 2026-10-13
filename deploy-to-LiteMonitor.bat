@@ -22,12 +22,12 @@ echo  LiteMonitor 部署  -^> %DST%
 echo ============================================================
 echo.
 
-echo [1/5] 关闭正在运行的 LiteMonitor ...
+echo [1/6] 关闭正在运行的 LiteMonitor ...
 taskkill /F /IM LiteMonitor.exe /T >nul 2>&1
 taskkill /F /IM LiteMonitorFPS.exe /T >nul 2>&1
 ping -n 3 127.0.0.1 >nul
 
-echo [2/5] 发布 net10 依赖式单文件版 ...
+echo [2/6] 发布 net10 依赖式单文件版 ...
 if exist "%STAGE%" rmdir /S /Q "%STAGE%"
 "%DOTNET%" publish "%PROJ%" -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o "%STAGE%"
 if errorlevel 1 (
@@ -36,17 +36,20 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [3/5] 部署主程序 ...
+echo [3/6] 部署主程序 ...
 if not exist "%DST%" mkdir "%DST%"
 copy /Y "%STAGE%\LiteMonitor.exe" "%DST%\LiteMonitor.exe" >nul
 
-echo [4/5] 同步 resources (语言 / 插件 / 主题) ...
+echo [4/6] 同步 resources (语言 / 插件 / 主题) ...
 if not exist "%DST%\resources" mkdir "%DST%\resources"
 xcopy /Y /S /I /Q "%STAGE%\resources\lang"    "%DST%\resources\lang"    >nul
 xcopy /Y /S /I /Q "%STAGE%\resources\plugins" "%DST%\resources\plugins" >nul
 xcopy /Y /S /I /Q "%STAGE%\resources\themes"  "%DST%\resources\themes"  >nul
 
-echo [5/5] 补齐单文件模式未落盘的辅助程序 ...
+echo [5/6] 同步使用说明(必读).txt ...
+copy /Y "%STAGE%\使用说明(必读).txt" "%DST%\使用说明(必读).txt" >nul
+
+echo [6/6] 补齐单文件模式未落盘的辅助程序 ...
 copy /Y "%~dp0resources\LiteMonitor.Updater.exe"    "%DST%\resources\LiteMonitor.Updater.exe" >nul
 copy /Y "%~dp0resources\assets\LiteMonitorFPS.exe"  "%DST%\resources\LiteMonitorFPS.exe"      >nul
 

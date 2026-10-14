@@ -16,6 +16,7 @@ namespace LiteMonitor.src.SystemServices
         private readonly NetworkManager _networkManager;
         private readonly DiskManager _diskManager;
         private readonly FpsCounter _fpsCounter;
+        private readonly EcFanReader _ecFanReader;
         private readonly object _lock;
         private readonly Dictionary<string, float> _lastValidMap; 
         
@@ -31,8 +32,10 @@ namespace LiteMonitor.src.SystemServices
 
         private const float AutoMoboTempHardMax = 95f;
         private const float ManualMoboTempHardMax = 125f;
+        private const float CpuTempHardMax = 125f;
 
         // 配置版本追踪，用于自动触发预热
+        private string _lastPrefCpuTemp = "";
         private string _lastPrefCpuFan = "";
         private string _lastPrefCpuPump = "";
         private string _lastPrefCaseFan = "";
@@ -52,6 +55,7 @@ namespace LiteMonitor.src.SystemServices
             _perfManager = perfManager;
             _lock = syncLock;
             _lastValidMap = lastValid;
+            _ecFanReader = new EcFanReader();
 
             // 初始化子服务
             _componentProcessor = new ComponentProcessor(c, s, map);
@@ -63,6 +67,7 @@ namespace LiteMonitor.src.SystemServices
             var newCache = map.GetInternalMap();
 
             // 记录当前预热的配置版本
+            _lastPrefCpuTemp = _cfg.PreferredCpuTemp;
             _lastPrefCpuFan = _cfg.PreferredCpuFan;
             _lastPrefCpuPump = _cfg.PreferredCpuPump;
             _lastPrefCaseFan = _cfg.PreferredCaseFan;
@@ -71,15 +76,16 @@ namespace LiteMonitor.src.SystemServices
             _lastPrefNet = _cfg.PreferredNetwork;
             _lastPrefGpu = _cfg.PreferredGpu ?? "";
 
-            // 1. 预查找用户指定的首选传感器 (风扇、水泵、主板温度)
-            string[] preferredKeys = { "CPU.Fan", "CPU.Pump", "CASE.Fan", "MOBO.Temp" };
+            // 1. 预查找用户指定的首选传感器 (CPU 温度、风扇、水泵、主板温度)
+            string[] preferredKeys = { "CPU.Temp", "CPU.Fan", "CPU.Pump", "CASE.Fan", "MOBO.Temp" };
             foreach (var key in preferredKeys)
             {
-                string pref = (key == "CPU.Fan") ? _lastPrefCpuFan :
-                             (key == "CPU.Pump") ? _lastPrefCpuPump :
-                             (key == "CASE.Fan") ? _lastPrefCaseFan : _lastPrefMoboTemp;
+                string pref = key == "CPU.Temp" ? _lastPrefCpuTemp :
+                             key == "CPU.Fan" ? _lastPrefCpuFan :
+                             key == "CPU.Pump" ? _lastPrefCpuPump :
+                             key == "CASE.Fan" ? _lastPrefCaseFan : _lastPrefMoboTemp;
 
-                SensorType type = (key == "MOBO.Temp") ? SensorType.Temperature : SensorType.Fan;
+                SensorType type = (key == "CPU.Temp" || key == "MOBO.Temp") ? SensorType.Temperature : SensorType.Fan;
 
                 if (!string.IsNullOrEmpty(pref) && !pref.Contains("自动") && !pref.Contains("Auto"))
                 {
@@ -143,6 +149,30 @@ namespace LiteMonitor.src.SystemServices
             if (string.IsNullOrEmpty(savedString) || savedString.Contains("Auto") || savedString.Contains("自动")) 
                 return null;
 
+            ISensor? SearchByIdentifier(IHardware h)
+            {
+                foreach (var s in h.Sensors)
+                {
+                    if (s.SensorType == type &&
+                        string.Equals(s.Identifier?.ToString(), savedString, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return s;
+                    }
+                }
+                foreach (var sub in h.SubHardware)
+                {
+                    var s = SearchByIdentifier(sub);
+                    if (s != null) return s;
+                }
+                return null;
+            }
+
+            foreach (var hw in _computer.Hardware)
+            {
+                var s = SearchByIdentifier(hw);
+                if (s != null) return s;
+            }
+
             int idx = savedString.LastIndexOf('[');
             if (idx < 0) return null; 
 
@@ -199,8 +229,9 @@ namespace LiteMonitor.src.SystemServices
                     _sensorMap.Rebuild(_computer, _cfg);
                 }
 
-                // 自动检测配置变更：如果用户更改了首选风扇/磁盘/显卡，立即自动预热
+                // 自动检测配置变更：如果用户更改了首选传感器/磁盘/显卡，立即自动预热
                 if (gpuChanged ||
+                    _lastPrefCpuTemp != _cfg.PreferredCpuTemp ||
                     _lastPrefCpuFan != _cfg.PreferredCpuFan ||
                     _lastPrefCpuPump != _cfg.PreferredCpuPump ||
                     _lastPrefCaseFan != _cfg.PreferredCaseFan ||
@@ -220,6 +251,9 @@ namespace LiteMonitor.src.SystemServices
         public float? GetStartupValue(string key)
         {
             if (_lastValidMap.TryGetValue(key, out float lastVal)) return lastVal;
+
+            // 虚拟内存走独立 Win32 通道，不依赖性能计数器，因此放在 useCounter 判断之前
+            if (key == "MEM.Virtual") return ReadVirtualMemory();
 
             bool useCounter = _cfg.UseWinPerCounters && _perfManager.IsInitialized;
             if (!useCounter) return null;
@@ -319,10 +353,22 @@ namespace LiteMonitor.src.SystemServices
 
                     // 2. CPU.Temp
                     case "CPU.Temp":
-                        result = _componentProcessor.GetCpuTemp();
+                        bool manualCpuTemp = IsManualCpuTemperatureSelected();
+                        bool hasSelectedCpuTempSensor = _manualSensorCache.TryGetValue("CPU.Temp", out var selectedCpuTemp);
+
+                        if (manualCpuTemp && hasSelectedCpuTempSensor)
+                        {
+                            result = ReadCpuTemperature(selectedCpuTemp);
+                        }
+
+                        if (result == null && (!manualCpuTemp || !hasSelectedCpuTempSensor))
+                        {
+                            result = _componentProcessor.GetCpuTemp();
+                        }
+
                         if (result == null && _manualSensorCache.TryGetValue("CPU.Temp", out var fallbackT))
                         {
-                            result = fallbackT.Value;
+                            result = manualCpuTemp ? ReadCpuTemperature(fallbackT) : fallbackT.Value;
                         }
                         if (result == null) result = 0f;
                         break;
@@ -333,6 +379,14 @@ namespace LiteMonitor.src.SystemServices
                         break;
                     case "DATA.DayDown":
                         result = TrafficLogger.GetTodayStats().down;
+                        break;
+
+                    // 6.1 虚拟内存 (已提交内存，即 物理内存 + 页面文件 的使用量)
+                    // 说明：数据源为系统级 Win32 API (GetPerformanceInfo)，与 LHM 传感器无关，
+                    // 因此这里不判断 useCounter —— 开关关闭时同样可用。
+                    // 该 API 无"首次采样为 0"的问题，不需要写入 _lastValidMap 兜底。
+                    case "MEM.Virtual":
+                        result = ReadVirtualMemory();
                         break;
 
                     // 6. 内存
@@ -410,7 +464,11 @@ namespace LiteMonitor.src.SystemServices
                     case "CPU.Pump":
                     case "CASE.Fan":
                     case "GPU.Fan":
-                        if (_manualSensorCache.TryGetValue(key, out var sFan))
+                        if ((key == "CPU.Fan" || key == "GPU.Fan") && _ecFanReader.TryGetRpm(key, out float ecRpm))
+                        {
+                            result = ecRpm;
+                        }
+                        else if (_manualSensorCache.TryGetValue(key, out var sFan))
                         {
                             result = sFan.Value;
                         }
@@ -528,6 +586,22 @@ namespace LiteMonitor.src.SystemServices
             }
         }
 
+        /// <summary>
+        /// 读取虚拟内存(已提交内存)占用率。
+        /// <para>取自系统级 Win32 API，同时刷新"提交上限"总容量缓存 (供容量显示模式换算)。</para>
+        /// </summary>
+        private float? ReadVirtualMemory()
+        {
+            var vm = _perfManager.GetVirtualMemoryData();
+
+            if (vm.TotalGB.HasValue && vm.TotalGB.Value > 0.1f)
+            {
+                Settings.DetectedVmemTotalGB = vm.TotalGB.Value;
+            }
+
+            return vm.Load;
+        }
+
         private float? ReadMoboTemperature(ISensor sensor)
         {
             bool manualSensor = IsManualMoboTemperatureSelected();
@@ -566,8 +640,33 @@ namespace LiteMonitor.src.SystemServices
                 : null;
         }
 
+        private float? ReadCpuTemperature(ISensor sensor)
+        {
+            var raw = sensor.Value;
+            if (!raw.HasValue || float.IsNaN(raw.Value) || float.IsInfinity(raw.Value) || raw.Value <= 0f || raw.Value > CpuTempHardMax)
+            {
+                return _lastValidMap.TryGetValue("CPU.Temp", out float last) &&
+                       last > 0f &&
+                       last <= CpuTempHardMax
+                    ? last
+                    : null;
+            }
+
+            _lastValidMap["CPU.Temp"] = raw.Value;
+            return raw.Value;
+        }
+
+        private bool IsManualCpuTemperatureSelected()
+        {
+            string pref = _cfg.PreferredCpuTemp ?? "";
+            return !string.IsNullOrWhiteSpace(pref) &&
+                   !pref.Contains("自动", StringComparison.OrdinalIgnoreCase) &&
+                   !pref.Contains("Auto", StringComparison.OrdinalIgnoreCase);
+        }
+
         public void Dispose()
         {
+            _ecFanReader.Dispose();
         }
     }
 }

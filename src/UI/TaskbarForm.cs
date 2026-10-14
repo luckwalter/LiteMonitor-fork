@@ -47,7 +47,7 @@ namespace LiteMonitor
             _isWin11 = Environment.OSVersion.Version >= new Version(10, 0, 22000);
 
             // 初始化组件
-            _winHelper = new TaskbarWinHelper(this);
+            _winHelper = new TaskbarWinHelper(this, _cfg);
             _bizHelper = new TaskbarBizHelper(this, _cfg, _winHelper);
 
             // 窗体属性
@@ -77,6 +77,7 @@ namespace LiteMonitor
 
         public void ReloadLayout()
         {
+            _winHelper?.InvalidateCache(); // 强制清除位置缓存，确保高度设置立即生效
             _layout = new HorizontalLayout(ThemeManager.Current, 300, LayoutMode.Taskbar, _cfg);
             _lastLayoutSignature = ""; // 重置签名，强制重算
             _winHelper.ApplyLayeredStyle(_bizHelper.TransparentKey, _cfg.TaskbarClickThrough);
@@ -169,8 +170,17 @@ namespace LiteMonitor
             }
         }
 
+        public void EnsureAboveCompositionBridge()
+        {
+            if (IsDisposed) return;
+            _winHelper.EnsureAboveCompositionBridge();
+        }
+
         private void Tick()
         {
+            // 驱动热更新后合成层会盖住监控条，父句柄仍然有效。每次刷新都校正一次 Z 序。
+            _winHelper.EnsureAboveCompositionBridge();
+
             // [Fix] 周期性检查句柄，防止 Explorer 重启后句柄失效
             // 优化：仅在重试期或句柄无效时调用 FindHandles，且限制调用频率
             bool isHandleInvalid = !_bizHelper.IsTaskbarValid();

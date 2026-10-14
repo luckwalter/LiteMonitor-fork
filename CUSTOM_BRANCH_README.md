@@ -80,6 +80,8 @@
   2. 显示层占位符：`MetricItem` 新增读数有效性缓存标志，当前帧无有效读数时显示「-」而非误导性的 0；`MetricUtils.GetValueStr` 对 `null` 双保险返回「-」。
   3. 详情页防护：`LiteTreeView.FormatValue` 对硬件层原始 `NaN` / `∞`（不经采集闸门）返回「-」。
 
+- **实测与提交状态（2026-10-15）**：主提交 `ea800b0`（A/B/C/D + 任务5）；随后补 `9693897`（快速启动开关补设置页入口——此前 `QuickStart` 仅有 `Settings` 字段与 `HardwareMonitor` 逻辑，缺 UI 入口，无法在界面开启）。两者均已推送 `origin/custom`，远程 ref 与本地 `HEAD` 一致（`9693897`），工作区干净。已部署至 `C:\LiteMonitor`（exe 与 `publish/_staging` 同步；`settings.json` / `HardwareHistory.json` / `TrafficHistory.json` 未被覆盖；`LiteMonitorFPS.exe` 保留、`LiteMonitor.Updater.exe` 未部署）。**维护者实机启动实测：功能正常。**
+
 > 注：Native AOT 此前已实测不可行（.NET 10 SDK 编译期抛 `NETSDK1175`，WinForms 禁止 trim），详见 `.workbuddy/memory/2026-10-14-NativeAOT可行性评估.md`，故走「原地功能优化」路线。
 
 ## 四、后续借鉴上游修正的约定

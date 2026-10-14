@@ -269,6 +269,9 @@ namespace LiteMonitor.src.UI.SettingsPage
             group.AddToggle(this, "省流量测速模式",
                 () => Config != null && Config.SpeedTestLite,
                 v => { if (Config != null) Config.SpeedTestLite = v; });
+            group.AddToggle(this, "快速启动(跳过GPU预热)",
+                () => Config != null && Config.QuickStart,
+                v => { if (Config != null) Config.QuickStart = v; });
             AddGroupToPage(group);
         }
 

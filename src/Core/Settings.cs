@@ -18,7 +18,7 @@ namespace LiteMonitor
         public Point Position { get; set; } = new Point(-1, -1);
 
         // ====== 界面与行为 ======
-        public bool AutoCheckUpdate { get; set; } = true; // ★★★ [新增] 自动检查更新 ★★★
+        public bool AutoCheckUpdate { get; set; } = false; // [custom] 自动检查更新已禁用：本分支与上游分道扬镳，不再连接官方更新源（避免定制版被官方 net8 版覆盖）；保留字段以兼容旧配置
         public bool HorizontalMode { get; set; } = false;
         public double Opacity { get; set; } = 0.85;
         public string Language { get; set; } = "";

@@ -252,7 +252,8 @@ namespace LiteMonitor.src.UI.SettingsPage
             );
 
             group.AddToggle(this, "Menu.AutoStart", () => Config?.AutoStart ?? false, v => { if(Config!=null) Config.AutoStart = v; });
-            group.AddToggle(this, "Menu.AutoCheckUpdate", () => Config?.AutoCheckUpdate ?? true, v => { if(Config!=null) Config.AutoCheckUpdate = v; });
+            // [custom] 自动更新已禁用：移除"自动检查更新"设置开关（本分支不再连接官方更新源）
+            // group.AddToggle(this, "Menu.AutoCheckUpdate", () => Config?.AutoCheckUpdate ?? true, v => { if(Config!=null) Config.AutoCheckUpdate = v; });
 
             var chkTray = group.AddToggle(this, "Menu.HideTrayIcon", 
                 () => Config?.HideTrayIcon ?? false, 

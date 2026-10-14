@@ -15,7 +15,12 @@ using System.IO.Compression;
 namespace LiteMonitor
 {
     /// <summary>
-    /// LiteMonitor 自动更新模块（最终完整版）
+    /// [custom] LiteMonitor 自动更新模块 —— 本分支（custom）已禁用自动更新功能。
+    /// 禁用原因：本分支与上游 Diorser/LiteMonitor 已分道扬镳、独立发展；官方更新源指向
+    /// litemonitor.cn / gitee:Diorser / github:Diorser，若保留会自动下载官方 net8 版覆盖
+    /// 本定制版。所有调用点（MainFormBizHelper / MenuManager / AboutForm）均已注释。
+    /// 保留本类与 UpdateDialog 源码，供后续自研升级功能继承与改写。
+    /// 原模块说明（已停用）：
     /// - version.json 支持国内 / GitHub 两源自动 fallback
     /// - ZIP 下载支持两源测速自动选择最快
     /// - ZIP 下载完成后，主程序抢先更新 Updater.exe，防止自更新死锁
@@ -144,7 +149,8 @@ namespace LiteMonitor
                         AutoExitOnSuccess = true
                     };
 
-                    new UpdateDialog(context, settings).ShowDialog();
+                    // [custom] 自动更新已禁用：不再弹出程序更新对话框（仅保留 DriverInstaller 复用 UpdateDialog 下载驱动/FPS 组件）
+                    // new UpdateDialog(context, settings).ShowDialog();
                 }
                 else
                 {

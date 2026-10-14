@@ -373,14 +373,12 @@ namespace LiteMonitor.src.UI.Helpers
             try
             {
                 if (HardwareMonitor.Instance != null) await HardwareMonitor.Instance.SmartCheckDriver();
-                await UpdateChecker.CheckAsync();
-                CheckUpdateSuccess();
 
-                // 如果发现新版本，重新构建菜单以显示“发现新版本”按钮
-                if (UpdateChecker.IsUpdateFound)
-                {
-                    _form.BeginInvoke(new Action(() => RebuildMenus()));
-                }
+                // [custom] 自动更新功能已禁用：本分支与上游分道扬镳，不再连接官方更新源，
+                // 避免定制版被官方 net8 版覆盖。升级能力将后续自研并继承。以下三处调用已注释：
+                //   await UpdateChecker.CheckAsync();
+                //   CheckUpdateSuccess();
+                //   if (UpdateChecker.IsUpdateFound) { _form.BeginInvoke(new Action(() => RebuildMenus())); }
 
                 // [Fix] 再次确认窗口属性（置顶、穿透），作为启动后的二次校验，确保功能与 UI 勾选一致
                 _form.BeginInvoke(new Action(() => {
@@ -390,6 +388,7 @@ namespace LiteMonitor.src.UI.Helpers
             catch { }
         }
 
+        // [custom] 自动更新已禁用：此提示方法不再被调用，保留供后续自研升级功能继承。
         private void CheckUpdateSuccess()
         {
             string tokenPath = Path.Combine(AppContext.BaseDirectory, "update_success");

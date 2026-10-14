@@ -592,9 +592,10 @@ namespace LiteMonitor
 
             moreRoot.DropDownItems.Add(new ToolStripSeparator());
               // 0. 检查更新、反馈、日志、关于
-            var itemCheckUpdate = new ToolStripMenuItem(LanguageManager.T("Menu.CheckUpdate"));
-            itemCheckUpdate.Click += async (_, __) => await UpdateChecker.CheckAsync(true);
-            moreRoot.DropDownItems.Add(itemCheckUpdate);
+            // [custom] 自动更新已禁用：移除"检查更新"菜单项（本分支不再连接官方更新源）
+            // var itemCheckUpdate = new ToolStripMenuItem(LanguageManager.T("Menu.CheckUpdate"));
+            // itemCheckUpdate.Click += async (_, __) => await UpdateChecker.CheckAsync(true);
+            // moreRoot.DropDownItems.Add(itemCheckUpdate);
 
             var itemFeedback = new ToolStripMenuItem(LanguageManager.T("Menu.Feedback"));
             itemFeedback.Click += (_, __) => SystemActions.OpenUrl("https://github.com/Diorser/LiteMonitor/issues");
@@ -625,24 +626,22 @@ namespace LiteMonitor
 
 
              // === 发现新版本 ===
-            if (UpdateChecker.IsUpdateFound)
-            {
-                bool isZh = cfg.Language?.ToLower().Contains("zh") == true;
-                string text = isZh ? $"💡发现新版本(v{UpdateChecker.LatestVersionInfo?.latest})" : $"🔄New version(v{UpdateChecker.LatestVersionInfo?.latest})";
-                
-                var updateItem = new ToolStripMenuItem(text);
-                // 鼠标停留提示更新日期与内容摘要 (移除加粗和自定义颜色以解决托盘菜单闪烁问题)
-                string? rawLog = UpdateChecker.LatestVersionInfo?.changelog;
-                string logSummary = string.IsNullOrEmpty(rawLog) ? "" : rawLog.Replace("\r", "").Replace("\n", " ");
-                if (logSummary.Length > 45) logSummary = string.Concat(logSummary.AsSpan(0, 45), "...");
-                updateItem.ToolTipText = $"{UpdateChecker.LatestVersionInfo?.releaseDate}: {logSummary}";
-                updateItem.ForeColor = Color.RoyalBlue;
-                updateItem.Font = new Font(updateItem.Font, FontStyle.Bold);
-                
-                updateItem.Click += async (_, __) => await UpdateChecker.CheckAsync(true);
-                menu.Items.Add(updateItem);
-                menu.Items.Add(new ToolStripSeparator());
-            }
+            // [custom] 自动更新已禁用：不再显示"发现新版本"动态菜单项（UpdateChecker.IsUpdateFound 永不为 true）
+            // if (UpdateChecker.IsUpdateFound)
+            // {
+            //     bool isZh = cfg.Language?.ToLower().Contains("zh") == true;
+            //     string text = isZh ? $"💡发现新版本(v{UpdateChecker.LatestVersionInfo?.latest})" : $"🔄New version(v{UpdateChecker.LatestVersionInfo?.latest})";
+            //     var updateItem = new ToolStripMenuItem(text);
+            //     string? rawLog = UpdateChecker.LatestVersionInfo?.changelog;
+            //     string logSummary = string.IsNullOrEmpty(rawLog) ? "" : rawLog.Replace("\r", "").Replace("\n", " ");
+            //     if (logSummary.Length > 45) logSummary = string.Concat(logSummary.AsSpan(0, 45), "...");
+            //     updateItem.ToolTipText = $"{UpdateChecker.LatestVersionInfo?.releaseDate}: {logSummary}";
+            //     updateItem.ForeColor = Color.RoyalBlue;
+            //     updateItem.Font = new Font(updateItem.Font, FontStyle.Bold);
+            //     updateItem.Click += async (_, __) => await UpdateChecker.CheckAsync(true);
+            //     menu.Items.Add(updateItem);
+            //     menu.Items.Add(new ToolStripSeparator());
+            // }
             // 7. 退出 (App) - 独立一栏放到外面来
             
             var itemExit = new ToolStripMenuItem(LanguageManager.T("Menu.Exit"));

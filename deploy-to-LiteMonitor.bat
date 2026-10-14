@@ -50,7 +50,8 @@ echo [5/6] 同步使用说明(必读).txt ...
 copy /Y "%STAGE%\使用说明(必读).txt" "%DST%\使用说明(必读).txt" >nul
 
 echo [6/6] 补齐单文件模式未落盘的辅助程序 ...
-copy /Y "%~dp0resources\LiteMonitor.Updater.exe"    "%DST%\resources\LiteMonitor.Updater.exe" >nul
+REM [custom] 升级工具已禁用：不再部署 LiteMonitor.Updater.exe（避免打包出的程序携带官方更新器）
+REM copy /Y "%~dp0resources\LiteMonitor.Updater.exe"    "%DST%\resources\LiteMonitor.Updater.exe" >nul
 copy /Y "%~dp0resources\assets\LiteMonitorFPS.exe"  "%DST%\resources\LiteMonitorFPS.exe"      >nul
 
 echo.

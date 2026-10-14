@@ -160,21 +160,47 @@ namespace LiteMonitor.src.WebServer
 
         private bool CheckAuth(string requestHeader)
         {
-            var pwd = Settings.Load().WebServerPassword;
-            if (string.IsNullOrEmpty(pwd)) return true;
+            var settings = Settings.Load();
+            var pwd = settings.WebServerPassword;
+            bool allowLan = settings.WebServerAllowLan;
 
-            var firstLine = requestHeader.Split('\n')[0]; 
-            var match = Regex.Match(firstLine, @"[?&]pwd=([^&\s]+)");
-            if (match.Success)
-            {
-                return match.Groups[1].Value == pwd;
-            }
-            return false;
+            // 空口令：仅本地回环模式放行（本机自访问无需密码）；一旦暴露到局域网必须设口令，否则拒绝
+            if (string.IsNullOrEmpty(pwd))
+                return !allowLan;
+
+            string? provided = ExtractPassword(requestHeader);
+            if (provided == null) return false;
+
+            // 恒定时间比较，避免时序侧信道；同时进行 URL 解码，使含 %/+/空格/& 的口令可正确校验
+            return FixedTimeEquals(pwd, Uri.UnescapeDataString(provided));
+        }
+
+        // 从请求中提取口令：优先 Authorization 请求头（HTTP API 场景），兼容 WebSocket 握手的 URL query 方式
+        private string? ExtractPassword(string requestHeader)
+        {
+            var authMatch = Regex.Match(requestHeader, @"Authorization:\s*(?:Bearer|Basic)?\s*(\S+)", RegexOptions.IgnoreCase);
+            if (authMatch.Success) return authMatch.Groups[1].Value.Trim();
+
+            var firstLine = requestHeader.Split('\n')[0];
+            var qMatch = Regex.Match(firstLine, @"[?&]pwd=([^&\s]+)");
+            if (qMatch.Success) return qMatch.Groups[1].Value;
+
+            return null;
+        }
+
+        // 恒定时间字符串比较（防时序侧信道）
+        private static bool FixedTimeEquals(string a, string b)
+        {
+            var ba = Encoding.UTF8.GetBytes(a);
+            var bb = Encoding.UTF8.GetBytes(b);
+            return CryptographicOperations.FixedTimeEquals(ba, bb);
         }
 
         private void SendHttpResponse(NetworkStream stream, int code, string type, byte[] body, int len)
         {
-            string headers = $"HTTP/1.1 {code} OK\r\nContent-Type: {type}\r\nContent-Length: {len}\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n";
+            // [custom] 安全加固：移除全局 Access-Control-Allow-Origin: *，避免任意恶意网页跨域读取硬件数据。
+            // Web UI 同源加载，无需 CORS；跨域请求将由浏览器同源策略直接拦截。
+            string headers = $"HTTP/1.1 {code} OK\r\nContent-Type: {type}\r\nContent-Length: {len}\r\nConnection: close\r\n\r\n";
             byte[] hBytes = Encoding.UTF8.GetBytes(headers);
             stream.Write(hBytes, 0, hBytes.Length);
             if (len > 0) stream.Write(body, 0, len);

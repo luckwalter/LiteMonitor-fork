@@ -47,19 +47,12 @@ namespace LiteMonitor.src.WebServer
             {
                 int port = _cfg.WebServerPort;
 
-                try
-                {
-                    // [Fix] 优先尝试绑定 IPv6Any 并开启 DualMode，以同时支持 IPv4 和 IPv6
-                    _listener = new TcpListener(IPAddress.IPv6Any, port);
-                    _listener.Server.DualMode = true;
-                    _listener.Start();
-                }
-                catch (Exception)
-                {
-                    // 如果系统不支持 IPv6，回退到 IPv4
-                    _listener = new TcpListener(IPAddress.Any, port);
-                    _listener.Start();
-                }
+                // [custom] 安全加固：默认仅绑定本地回环(127.0.0.1 / ::1)，避免 Web 服务在局域网裸奔；
+                // 仅当用户显式开启 WebServerAllowLan 时才绑定全网卡。DualMode 让单栈 socket 同时承接 IPv4/IPv6。
+                IPAddress bindAddr = _cfg.WebServerAllowLan ? IPAddress.IPv6Any : IPAddress.IPv6Loopback;
+                _listener = new TcpListener(bindAddr, port);
+                _listener.Server.DualMode = true;
+                _listener.Start();
 
                 _isRunning = true;
                 _currentRunningPort = port;

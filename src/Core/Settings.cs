@@ -147,6 +147,8 @@ namespace LiteMonitor
         public bool WebServerEnabled { get; set; } = false;
         public int WebServerPort { get; set; } = 5000; // 默认端口
         public string WebServerPassword { get; set; } = ""; // 访问密码
+        // [custom] Web 服务绑定范围：false=仅本地回环(默认，安全)；true=绑定全网卡(局域网可访问，须同时设置密码)
+        public bool WebServerAllowLan { get; set; } = false;
         
         public ThresholdsSet Thresholds { get; set; } = new ThresholdsSet();
 

@@ -504,9 +504,10 @@ namespace LiteMonitor.src.WebServer
                             const el = document.createElement('div');
                             el.className = 'dash-item';
                             el.innerHTML = `
-                                <div class='dash-lbl'>${item.n}</div>
+                                <div class='dash-lbl'></div>
                                 <div class='dash-val'>--</div>
                             `;
+                            el.querySelector('.dash-lbl').textContent = item.n;
                             cObj.cont.appendChild(el);
                             cObj.rows[item.k] = { 
                                 el, 
@@ -533,10 +534,11 @@ namespace LiteMonitor.src.WebServer
                         if (!r) {
                             const el = document.createElement('div');
                             el.innerHTML = `
-                                <div class='big-lbl'>${item.n}</div>
+                                <div class='big-lbl'></div>
                                 <div class='big-val'>--</div>
                                 <div class='big-unit'>--</div>
                             `;
+                            el.querySelector('.big-lbl').textContent = item.n;
                             cObj.cont.appendChild(el);
                             cObj.rows[item.k] = { 
                                 el, 
@@ -568,11 +570,12 @@ namespace LiteMonitor.src.WebServer
                             const el = document.createElement('div');
                             el.innerHTML = `
                                 <div class='d-info'>
-                                    <span class='d-lbl'>${item.n}</span>
+                                    <span class='d-lbl'></span>
                                     <div><span class='d-val-box'>--</span><span class='d-unit'></span></div>
                                 </div>
                                 <div class='d-bar-bg'><div class='d-bar-fill'></div></div>
                             `;
+                            el.querySelector('.d-lbl').textContent = item.n;
                             cObj.cont.appendChild(el);
                             cObj.rows[item.k] = { 
                                 el,

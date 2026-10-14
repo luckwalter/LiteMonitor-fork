@@ -57,6 +57,16 @@
 - `deploy-to-LiteMonitor.bat`（69 行）：先 `publish` 到 `publish/_staging` 暂存目录，再**挑选性复制**至 `C:\LiteMonitor`，其中 `settings.json`、`HardwareHistory.json`、`TrafficHistory.json`、`使用说明(必读).txt` **永不被覆盖**（保留用户配置与历史数据）。
 - 同时补齐单文件发布模式下不会落盘的两个附属 exe：`resources\LiteMonitor.Updater.exe`、`resources\LiteMonitorFPS.exe`（否则 FPS 计数与检查更新失效）。
 
+### 3.4 Web 服务安全加固（2026-10-14）
+
+针对上游代码审查发现的 Web 服务安全问题（详见 `.workbuddy/memory/2026-10-14-代码审查-性能与安全.md`），本分支对 Web 服务做了安全加固，**源码改动仅限 Web 服务认证/绑定逻辑，不影响默认关闭的 Web 功能与桌面端**：
+
+- **S1 默认本地回环 + 新增 AllowLan 开关**：`LiteWebServer.cs` 绑定地址由默认 `IPv6Any`/`Any`（全网卡）改为默认 `IPv6Loopback`（本地回环），新增 `Settings.WebServerAllowLan`（默认 `false`）；仅当用户显式开启时才绑全网卡，避免误开导致局域网裸奔。
+- **S1+S3 认证加固**：`WebSessionManager.CheckAuth` 改为——空口令时仅本地回环模式放行、局域网模式强制拒绝；口令比较新增 `Uri.UnescapeDataString` 解码（修复含 `&`/`%`/`+` 口令校验失败）并改用 `CryptographicOperations.FixedTimeEquals` 恒定时间比较（防时序侧信道）；新增 `Authorization` 请求头提口令（WebSocket 握手仍兼容 URL `?pwd=`）。
+- **S2 CORS 收敛**：移除全部响应固定带的 `Access-Control-Allow-Origin: *`，Web 面板同源加载本不需要跨域，此举阻止任意恶意网页跨域读取硬件数据。
+- **S5 前端 XSS 预防**：`WebPageContent.cs` 三处用 `innerHTML` 拼接监控项名称改为「`innerHTML` 建结构 + `textContent` 注入文本」，堵死潜在的 XSS。
+- **S4 下载校验（维持现状）**：`DriverInstaller` 现有的 `IsValidExecutable`（PE 头 + 大小校验）已挡住「下载到损坏/非预期文件直接执行」的主要风险；硬编码 SHA256 白名单因二进制随官方版本变化会破坏正常更新，故未引入。自动更新（UpdateChecker）此前已整体禁用，下载风险面进一步缩小。
+
 ## 四、后续借鉴上游修正的约定
 
 - **渠道**：`git fetch upstream` 后查看 `upstream/master` 的新提交。
@@ -102,6 +112,7 @@ master   (本地镜像, 169e90a)   ←── 上游基线，即"来自源的 pul
 custom   (维护主线)   ←── 本分支（独立演进）
       ├─ .NET 升级 net8→net10 + 部署脚本        [本地主动变更]
       ├─ 使用说明补回 + .gitignore               [本地主动变更]
+      ├─ Web 服务安全加固（3.4）                 [本地主动变更]
       └─ 10 个上游 PR 集成（合并提交 4e16e7d）   [已合入, 实验分支 exp/pr-survey 已删远程仅本地保留]
 ```
 

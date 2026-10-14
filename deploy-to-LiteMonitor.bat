@@ -65,7 +65,7 @@ echo    - HardwareHistory.json    (硬件历史)
 echo    - TrafficHistory.json     (流量历史)
 echo    - 使用说明(必读).txt
 echo.
-echo  注意: HardwareHistoryLogger 写死了 7 天保留期,
-echo        超过 7 天的历史数据会在启动时被自动裁剪。
+echo  注意: 历史趋势记录默认保留 7 天(可在设置中调整),
+echo        超过保留期的数据会在启动时被自动裁剪。
 echo ============================================================
 endlocal

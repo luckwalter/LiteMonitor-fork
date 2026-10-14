@@ -257,6 +257,8 @@ namespace LiteMonitor.src.UI.Controls
         {
             if (!val.HasValue) return "-";
             float v = val.Value;
+            // [加固] 拦截硬件层原始 NaN/∞（详情页直读 sensor.Value，不经采集闸门），显示占位符
+            if (float.IsNaN(v) || float.IsInfinity(v)) return "-";
 
             // 1. 数据类特殊处理 (LHM 单位转 Bytes)
             if (type == SensorType.Data) return MetricUtils.FormatDataSize((double)v * 1073741824.0);

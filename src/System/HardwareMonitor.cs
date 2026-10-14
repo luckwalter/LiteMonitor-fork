@@ -332,7 +332,9 @@ namespace LiteMonitor.src.SystemServices
                     // 首轮缓存就绪后再做历史记录禁用和内存整理，避免延后第一屏数据。
                     _ = Task.Run(async () =>
                     {
-                        await Task.Delay(3000);
+                        // [custom] 快速启动：开启时不等待预热，CPU/内存立即可见，GPU 数据稍后填充
+                        if (!_cfg.QuickStart)
+                            await Task.Delay(3000);
 
                         lock (_lock)
                         {

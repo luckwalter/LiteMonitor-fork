@@ -65,7 +65,7 @@ namespace LiteMonitor
             _bizHelper.AttachToTaskbar();
             _winHelper.ApplyLayeredStyle(_bizHelper.TransparentKey, _cfg.TaskbarClickThrough);
 
-            _timer.Interval = Math.Max(_cfg.RefreshMs, 60);
+            _timer.Interval = CalcRefreshInterval();
             _timer.Tick += (_, __) => Tick();
             _timer.Start();
 
@@ -73,6 +73,16 @@ namespace LiteMonitor
             _tooltipHelper = new TaskbarTooltipHelper(this, _cfg, _ui);
 
             Tick();
+        }
+
+        // [custom] 低功耗/省电模式：开启或电池供电时把刷新频率降到最低 3 秒
+        private int CalcRefreshInterval()
+        {
+            int baseMs = _cfg.RefreshMs;
+            bool powerSave = _cfg.PowerSaveMode
+                || (_cfg.AutoPowerSaveOnBattery && System.Windows.Forms.SystemInformation.PowerStatus.PowerLineStatus == System.Windows.Forms.PowerLineStatus.Offline);
+            int eff = powerSave ? Math.Max(baseMs, 3000) : baseMs;
+            return Math.Max(60, eff);
         }
 
         public void ReloadLayout()

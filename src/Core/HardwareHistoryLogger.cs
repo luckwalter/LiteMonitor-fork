@@ -40,9 +40,9 @@ namespace LiteMonitor.src.Core
         private static readonly string _tempPath = Path.Combine(AppContext.BaseDirectory, "HardwareHistory.json.tmp");
         private static readonly object _dataLock = new object();
         private static readonly object _ioLock = new object();
-        private static readonly TimeSpan _sampleInterval = TimeSpan.FromSeconds(10);
-        private static readonly TimeSpan _retention = TimeSpan.FromDays(7);
-        private static readonly TimeSpan _saveInterval = TimeSpan.FromMinutes(5);
+        private static TimeSpan _sampleInterval = TimeSpan.FromSeconds(10);
+        private static TimeSpan _retention = TimeSpan.FromDays(7);
+        private static TimeSpan _saveInterval = TimeSpan.FromMinutes(5);
 
         private static readonly HashSet<string> _supportedKeys = new HashSet<string>(
             TemperatureKeys.Concat(LoadKeys).Concat(FrequencyKeys).Concat(PowerKeys).Concat(FpsKeys),
@@ -60,6 +60,12 @@ namespace LiteMonitor.src.Core
 
         public static void Load()
         {
+            // [custom] 历史参数改为可配置：按当前 Settings 初始化三个间隔常量（默认与原写死值一致）
+            var cfg = Settings.Load();
+            _sampleInterval = TimeSpan.FromSeconds(Math.Max(1, cfg.HistorySampleIntervalSec));
+            _retention = TimeSpan.FromDays(Math.Max(1, cfg.HistoryRetentionDays));
+            _saveInterval = TimeSpan.FromMinutes(Math.Max(1, cfg.HistorySaveIntervalMin));
+
             lock (_ioLock)
             {
                 var loaded = TryLoadFile(_filePath) ?? TryLoadFile(_backupPath) ?? new HardwareHistoryData();

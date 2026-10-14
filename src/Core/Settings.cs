@@ -26,6 +26,12 @@ namespace LiteMonitor
         public bool AutoHide { get; set; } = true;
         public bool ClampToScreen { get; set; } = true;
         public int PanelWidth { get; set; } = 240;
+
+        // ====== 性能与功耗 ======
+        // [custom] 低功耗/省电模式：开启后刷新频率降到最低 3 秒，降低常驻 CPU 唤醒与耗电（默认关闭）
+        public bool PowerSaveMode { get; set; } = false;
+        // [custom] 笔记本电池供电时自动进入省电模式（默认开启）
+        public bool AutoPowerSaveOnBattery { get; set; } = true;
         public double UIScale { get; set; } = 1.0;
 
         // ====== 硬件相关 ======
@@ -41,6 +47,12 @@ namespace LiteMonitor
         public string PreferredCaseFan { get; set; } = "";
         public string PreferredCpuTemp { get; set; } = "";
         public string PreferredMoboTemp { get; set; } = "";
+        
+        // [custom] 快速启动：跳过启动后 3 秒预热等待，CPU/内存立即可见，GPU 数据稍后填充（默认关闭）
+        public bool QuickStart { get; set; } = false;
+        
+        // [custom] 省流量快速测速：缩短测速时长（下载5s/上传2s），实测流量显著降低（默认关闭）
+        public bool SpeedTestLite { get; set; } = false;
         
         // 主窗体所在的屏幕设备名 (用于记忆上次位置)
         public string ScreenDevice { get; set; } = "";
@@ -140,6 +152,14 @@ namespace LiteMonitor
         public float RecordedMaxChassisFan { get; set; } = 3000;
 
         public bool MaxLimitTipShown { get; set; } = false;
+        
+        // ====== 历史趋势记录（可配置；默认取值与原写死值一致）======
+        // [custom] 历史数据保留天数（原写死 7 天）
+        public int HistoryRetentionDays { get; set; } = 7;
+        // [custom] 历史采样间隔（秒，原写死 10 秒）
+        public int HistorySampleIntervalSec { get; set; } = 10;
+        // [custom] 历史落盘间隔（分钟，原写死 5 分钟）
+        public int HistorySaveIntervalMin { get; set; } = 5;
         
         public bool AlertTempEnabled { get; set; } = true;
         public int AlertTempThreshold { get; set; } = 80;

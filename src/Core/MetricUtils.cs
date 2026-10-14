@@ -122,7 +122,10 @@ namespace LiteMonitor.src.Core
         /// </summary>
         public static string GetValueStr(string key, float? value, bool compact = false)
         {
-            float v = value ?? 0.0f;
+            // [加固] 无效读数（null）直接返回占位符，避免被当成 0 误导用户
+            if (value == null) return "-";
+
+            float v = value.Value;
             var type = GetType(key);
 
             // 1. 内存特殊处理 (容量 vs 百分比)

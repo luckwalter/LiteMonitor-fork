@@ -75,8 +75,8 @@ namespace LiteMonitor
         private SpeedTestPhase _currentPhase = SpeedTestPhase.Idle;
 
         // 测速配置
-        private readonly int _downloadSeconds = 15;
-        private readonly int _uploadSeconds = 7;
+        private int _downloadSeconds;
+        private int _uploadSeconds;
 
         // 测速结果
         private double lastDownload = 0;
@@ -122,6 +122,9 @@ namespace LiteMonitor
             // 获取当前主题
             _currentTheme = ThemeManager.Current;
             _cfg = Settings.Load();
+            // [custom] 省流量快速测速：缩短测速时长，实测流量显著降低（默认标准 15s/7s）
+            if (_cfg.SpeedTestLite) { _downloadSeconds = 5; _uploadSeconds = 2; }
+            else { _downloadSeconds = 15; _uploadSeconds = 7; }
             // UI 初始化 (使用主题色)
             FormBorderStyle = FormBorderStyle.None;
             Width = ScaleDPI(400); // 增加宽度以容纳更大的字体和更好的布局
@@ -277,7 +280,7 @@ namespace LiteMonitor
             // 批量重置 UI 状态
             Invoke(new Action(() =>
             {
-                lblStatus.Text = "🚀 Speed Test Started...";
+                lblStatus.Text = "🚀 Speed Test Started..." + (_cfg.SpeedTestLite ? " (省流量)" : "");
                 lblSpeed.Text = "Internet: ↓ 0.0 Mbps ↑ 0.0 Mbps";
                 lblLocalSpeed.Text = "Measuring network traffic...";
                 lblLocalSpeed.ForeColor = ThemeManager.ParseColor(_currentTheme.Color.ValueSafe);
@@ -411,7 +414,7 @@ namespace LiteMonitor
             {
                 // 移除 btnClose.Visible = false; 这行，让关闭按钮保持默认显示状态
                 btnRetry.Visible = false;
-                lblStatus.Text = "🚀 Speed Test Started...";
+                lblStatus.Text = "🚀 Speed Test Started..." + (_cfg.SpeedTestLite ? " (省流量)" : "");
                 lblSpeed.Text = "Internet: ↓ 0.0 Mbps ↑ 0.0 Mbps";
                 bar.Value = DownloadStartProgress;
                 lblLocalSpeed.Text = "Connecting to server...";

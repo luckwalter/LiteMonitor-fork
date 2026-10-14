@@ -44,11 +44,21 @@ namespace LiteMonitor
 
             _layout = new UILayout(ThemeManager.Current);
 
-            _timer = new System.Windows.Forms.Timer { Interval = Math.Max(80, _cfg.RefreshMs) };
+            _timer = new System.Windows.Forms.Timer { Interval = CalcRefreshInterval() };
             _timer.Tick += (_, __) => Tick();
             _timer.Start();
 
             ApplyTheme(_cfg.Skin);
+        }
+
+        // [custom] 低功耗/省电模式：开启或电池供电时把刷新频率降到最低 3 秒，降低常驻 CPU 唤醒与耗电
+        private int CalcRefreshInterval()
+        {
+            int baseMs = _cfg.RefreshMs;
+            bool powerSave = _cfg.PowerSaveMode
+                || (_cfg.AutoPowerSaveOnBattery && System.Windows.Forms.SystemInformation.PowerStatus.PowerLineStatus == System.Windows.Forms.PowerLineStatus.Offline);
+            int eff = powerSave ? Math.Max(baseMs, 3000) : baseMs;
+            return Math.Max(80, eff);
         }
 
         public float GetCurrentDpiScale()
@@ -117,7 +127,7 @@ namespace LiteMonitor
 
             _form.BackColor = ThemeManager.ParseColor(t.Color.Background);
 
-            _timer.Interval = Math.Max(80, _cfg.RefreshMs);
+            _timer.Interval = CalcRefreshInterval();
             _form.Invalidate();
             _form.Update();
         }

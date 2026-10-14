@@ -67,6 +67,21 @@
 - **S5 前端 XSS 预防**：`WebPageContent.cs` 三处用 `innerHTML` 拼接监控项名称改为「`innerHTML` 建结构 + `textContent` 注入文本」，堵死潜在的 XSS。
 - **S4 下载校验（维持现状）**：`DriverInstaller` 现有的 `IsValidExecutable`（PE 头 + 大小校验）已挡住「下载到损坏/非预期文件直接执行」的主要风险；硬编码 SHA256 白名单因二进制随官方版本变化会破坏正常更新，故未引入。自动更新（UpdateChecker）此前已整体禁用，下载风险面进一步缩小。
 
+### 3.5 功能调整与硬件数据防御性加固（2026-10-14）
+
+在「与上游分道扬镳、不再重构」的务实路线上，针对功能可调项与数据有效性做了以下本地增强（**全部默认关闭 / 保持原行为，零回归风险**）：
+
+- **历史趋势记录可配置（A）**：`HardwareHistoryLogger.cs` 原写死的保留期（7 天）/ 采样间隔（10 秒）/ 落盘间隔（5 分钟）改为读取 `Settings`（`HistoryRetentionDays` / `HistorySampleIntervalSec` / `HistorySaveIntervalMin`），默认与旧版完全一致；设置页「系统」新增「历史趋势记录」卡片。
+- **低功耗 / 省电模式（B）**：新增 `PowerSaveMode` 与 `AutoPowerSaveOnBattery` 开关。`UIController` / `TaskbarForm` 的刷新间隔计算加入省电降频（最低 3 秒）；电池供电时自动降频。`SystemHardwarPage` 新增「性能与功耗」卡片。默认关闭。
+- **快速启动（C）**：新增 `QuickStart` 开关，开启后跳过 `HardwareMonitor.cs` 启动时的 3 秒 GPU 预热等待，CPU / 内存立即可见，GPU 数据稍后填充。默认关闭。
+- **省流量快速测速（D）**：探查确认本软件测速为手动窗口、无后台自动跑大流量，故落地为「省流量快速模式」开关——下载 15→5s、上传 7→2s（流量降约 2/3）；设置页「性能与功耗」卡片加开关，测速窗体状态提示「(省流量)」。默认关闭。
+- **硬件数据防御性加固（任务5）**：
+  1. 采集层全局异常值闸门：`HardwareValueProvider.GetValue` 写入前拦截 `NaN` / `∞` / 非法负值（负载、温度、频率、转速、功耗、电压、电流、数据速度、内存等；电池类负值属充电方向语义，跳过），回退最后有效值或返回 `null`；通用兜底写入 `lastValid` 也经同一闸门，避免污染历史。
+  2. 显示层占位符：`MetricItem` 新增读数有效性缓存标志，当前帧无有效读数时显示「-」而非误导性的 0；`MetricUtils.GetValueStr` 对 `null` 双保险返回「-」。
+  3. 详情页防护：`LiteTreeView.FormatValue` 对硬件层原始 `NaN` / `∞`（不经采集闸门）返回「-」。
+
+> 注：Native AOT 此前已实测不可行（.NET 10 SDK 编译期抛 `NETSDK1175`，WinForms 禁止 trim），详见 `.workbuddy/memory/2026-10-14-NativeAOT可行性评估.md`，故走「原地功能优化」路线。
+
 ## 四、后续借鉴上游修正的约定
 
 - **渠道**：`git fetch upstream` 后查看 `upstream/master` 的新提交。
@@ -97,7 +112,7 @@
 
 1. **⚠️ 自动更新覆盖风险**：`settings.json` 中 `AutoCheckUpdate` 默认 `true`，更新源写死官方（litemonitor.cn / gitee:Diorser / github:Diorser），下载官方 release ZIP 后直接覆盖 `LiteMonitor.exe`。一旦自动更新，net10 定制版会被官方 net8 版替换，连 `使用说明(必读).txt` 也会被旧版覆盖。**处理办法**：把 `AutoCheckUpdate` 改为 `false`，或改掉那三个 URL。
 2. **单文件发布的附属 exe**：见 3.3，部署脚本已处理，勿手删。
-3. **硬件历史保留期**：`src/Core/HardwareHistoryLogger.cs` 写死 `_retention = 7 天`，过期数据在 `.bak` 中可找回，这是设计如此，延长需改代码。
+3. **硬件历史保留期**：默认 `7 天`，保留期 / 采样间隔 / 落盘间隔已可在 `settings.json`（`HistoryRetentionDays` / `HistorySampleIntervalSec` / `HistorySaveIntervalMin`）或设置页「历史趋势记录」卡片调整；过期数据在 `.bak` 中可找回。
 4. **许可证**：源项目无开源许可证（license 为 null）。本地自用修改无碍；若要公开分发二进制或二次开源，需先取得作者授权。
 
 ## 七、分支图谱
@@ -113,6 +128,7 @@ custom   (维护主线)   ←── 本分支（独立演进）
       ├─ .NET 升级 net8→net10 + 部署脚本        [本地主动变更]
       ├─ 使用说明补回 + .gitignore               [本地主动变更]
       ├─ Web 服务安全加固（3.4）                 [本地主动变更]
+      ├─ 功能调整与防御性加固（3.5）             [本地主动变更: 历史可配置/省电/快速启动/省流量测速/数据有效性]
       └─ 10 个上游 PR 集成（合并提交 4e16e7d）   [已合入, 实验分支 exp/pr-survey 已删远程仅本地保留]
 ```
 

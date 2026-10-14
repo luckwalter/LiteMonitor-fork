@@ -560,15 +560,24 @@ namespace LiteMonitor.src.SystemServices
                 if (!skipGenericFallback && result == null && _manualSensorCache.TryGetValue(key, out var sGen))
                 {
                     var val = sGen.Value;
-                    if (val.HasValue && !float.IsNaN(val.Value)) 
-                    { 
-                        _lastValidMap[key] = val.Value; 
-                        result = val.Value; 
+                    if (val.HasValue && IsValidReading(key, val.Value))
+                    {
+                        _lastValidMap[key] = val.Value;
+                        result = val.Value;
                     }
                     else if (_lastValidMap.TryGetValue(key, out var last))
                     {
                         result = last;
                     }
+                }
+
+                // ★★★ [加固] 全局异常值闸门：拦截 NaN/∞/非法负值，回退最后有效值，否则返回 null ★★★
+                if (result.HasValue && !IsValidReading(key, result))
+                {
+                    if (_lastValidMap.TryGetValue(key, out float last) && IsValidReading(key, last))
+                        result = last;
+                    else
+                        result = null;
                 }
 
                 // ★★★ [新增 4] 写入缓存并返回 ★★★
@@ -584,6 +593,31 @@ namespace LiteMonitor.src.SystemServices
             {
                 if (lockTaken) Monitor.Exit(_lock);
             }
+        }
+
+        /// <summary>
+        /// [加固] 读数有效性闸门：拦截 NaN/∞ 与非法负值（负载/温度/频率/转速/功耗/电压/电流/数据速度/内存等）。
+        /// 电池类(BAT.*)负值属充电方向正常语义，跳过负值检查。
+        /// </summary>
+        private bool IsValidReading(string key, float? value)
+        {
+            if (!value.HasValue) return false;
+            float v = value.Value;
+            if (float.IsNaN(v) || float.IsInfinity(v)) return false;
+
+            // 电池类负值（充电方向）属于正常语义，跳过负值检查
+            if (key.StartsWith("BAT", StringComparison.OrdinalIgnoreCase)) return true;
+
+            var type = MetricUtils.GetType(key);
+            // 以下类型物理上不应为负：负载/百分比、温度、内存占用率
+            if (type is MetricType.Percent or MetricType.Temperature or MetricType.Memory)
+                return v >= 0f;
+            // 频率、转速、功耗、电压、电流、数据速度也不应为负
+            if (type is MetricType.Frequency or MetricType.RPM or MetricType.Power
+                or MetricType.Voltage or MetricType.Current or MetricType.DataSpeed)
+                return v >= 0f;
+
+            return true;
         }
 
         /// <summary>

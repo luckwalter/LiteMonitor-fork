@@ -34,6 +34,8 @@ namespace LiteMonitor.src.UI.SettingsPage
         {
             CreateSourceCard();
             CreateCalibrationCard();
+            CreateHistoryCard();
+            CreatePowerCard();
             CreateSystemCard();
         }
 
@@ -234,6 +236,39 @@ namespace LiteMonitor.src.UI.SettingsPage
             AddCalib("Items.GPU.Fan",   "RPM", () => Config?.RecordedMaxGpuFan ?? 2000, v => { if(Config!=null) Config.RecordedMaxGpuFan = v; });
             AddCalib("Items.CASE.Fan",  "RPM", () => Config?.RecordedMaxChassisFan ?? 2000, v => { if(Config!=null) Config.RecordedMaxChassisFan = v; });
 
+            AddGroupToPage(group);
+        }
+
+        private void CreateHistoryCard()
+        {
+            var group = new LiteSettingsGroup("历史趋势记录");
+            int[] retainOpts = { 3, 7, 14, 30, 60, 90 };
+            group.AddCombo(this, "历史数据保留天数", retainOpts.Select(x => x + " 天").ToArray(),
+                () => (Config?.HistoryRetentionDays ?? 7) + " 天",
+                v => { if (Config != null) Config.HistoryRetentionDays = MetricUtils.ParseInt(v); });
+            int[] sampleOps = { 5, 10, 15, 30, 60 };
+            group.AddCombo(this, "历史数据采样间隔", sampleOps.Select(x => x + " 秒").ToArray(),
+                () => (Config?.HistorySampleIntervalSec ?? 10) + " 秒",
+                v => { if (Config != null) Config.HistorySampleIntervalSec = MetricUtils.ParseInt(v); });
+            int[] saveOps = { 1, 2, 5, 10, 15 };
+            group.AddCombo(this, "历史数据落盘间隔", saveOps.Select(x => x + " 分钟").ToArray(),
+                () => (Config?.HistorySaveIntervalMin ?? 5) + " 分钟",
+                v => { if (Config != null) Config.HistorySaveIntervalMin = MetricUtils.ParseInt(v); });
+            AddGroupToPage(group);
+        }
+
+        private void CreatePowerCard()
+        {
+            var group = new LiteSettingsGroup("性能与功耗");
+            group.AddToggle(this, "低功耗/省电模式",
+                () => Config?.PowerSaveMode ?? false,
+                v => { if (Config != null) Config.PowerSaveMode = v; });
+            group.AddToggle(this, "电池供电时自动省电",
+                () => Config != null && Config.AutoPowerSaveOnBattery,
+                v => { if (Config != null) Config.AutoPowerSaveOnBattery = v; });
+            group.AddToggle(this, "省流量测速模式",
+                () => Config != null && Config.SpeedTestLite,
+                v => { if (Config != null) Config.SpeedTestLite = v; });
             AddGroupToPage(group);
         }
 

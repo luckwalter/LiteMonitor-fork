@@ -1,4 +1,5 @@
-@echo off
+﻿@echo off
+chcp 65001 >nul
 REM ============================================================
 REM  LiteMonitor 本地部署脚本
 REM  目标目录: C:\LiteMonitor (本机发布/运行目录)

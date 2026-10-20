@@ -84,6 +84,14 @@
 
 > 注：Native AOT 此前已实测不可行（.NET 10 SDK 编译期抛 `NETSDK1175`，WinForms 禁止 trim），详见 `.workbuddy/memory/2026-10-14-NativeAOT可行性评估.md`，故走「原地功能优化」路线。
 
+### 3.6 上游 PR 补充集成：#364 自定义传感器 ID + #373 全屏置顶守护（2026-10-20）
+
+二轮调研（`.workbuddy/memory/2026-10-20.md`）后落地的第一批合并，在实验分支 `exp/pr-364-373` 上集成、编译验证后合入 `custom`（合并提交 `6c91f28`）：
+
+- **#364 自定义传感器 ID（0 冲突，纯增量）**：`Settings` / `MonitorItem` 新增 `OverrideSensorId`；`SensorMap.Rebuild` 末尾追加用户强制覆盖逻辑（`HardwareVisitor` 线性全扫描匹配 `Identifier`，覆盖自动映射，注释已注明低频操作耗时可忽略）；`MonitorControls` 新增监控项行内齿轮⚙弹窗。解决多块同型号硬盘 / 显卡自动匹配绑错的问题（上游 issue #285）。留空即维持原自动匹配行为。
+- **#373 全屏置顶守护（2 冲突，手工三方合并）**：`MainFormWinHelper` 新增 `ReapplyTopMost()`（无条件 `SetWindowPos(HWND_TOPMOST)`，应对全屏应用中 `WS_EX_TOPMOST` 标志仍在但窗口实被覆盖的场景）；`MainForm_Transparent` 新增 3 秒 `_topMostGuardTimer` 守护 + `OnFormClosed` 清理。**冲突解决策略：保留本地全部定制，叠加 PR 功能**——① Win32 常量区取本地超集（`HWND_NOTOPMOST` / `SWP_NOOWNERZORDER` 保留）；② 本地「启动 3 秒后 `RefreshTopMost(forceReinsert)`」与 PR 守护**并存**（轻量周期性置顶与强 Z 序重插互补）；③ `OnFormClosed` 保留本地 `HardwareHistoryLogger.Save()`（PR 基础版本较旧没有此行，直接采用会丢历史落盘）。
+- **合并坑记录**：ort 策略对「同行常量换位」误判——`WS_EX_TOPMOST` 在本地位于常量区首位、PR 分支位于末尾，自动合并后头尾各留一份导致 `CS0102` 重复定义，删末尾重复项解决（编译 0 错误后 amend 合并提交）。
+
 ## 四、后续借鉴上游修正的约定
 
 - **渠道**：`git fetch upstream` 后查看 `upstream/master` 的新提交。
@@ -131,6 +139,8 @@ custom   (维护主线)   ←── 本分支（独立演进）
       ├─ 使用说明补回 + .gitignore               [本地主动变更]
       ├─ Web 服务安全加固（3.4）                 [本地主动变更]
       ├─ 功能调整与防御性加固（3.5）             [本地主动变更: 历史可配置/省电/快速启动/省流量测速/数据有效性]
+      ├─ 上游 PR #364 自定义传感器 ID            [已合入, 0 冲突]
+      ├─ 上游 PR #373 全屏置顶守护               [已合入, 手工解 2 冲突: 保留本地定制+叠加守护定时器]
       └─ 10 个上游 PR 集成（合并提交 4e16e7d）   [已合入, 实验分支 exp/pr-survey 已删远程仅本地保留]
 ```
 

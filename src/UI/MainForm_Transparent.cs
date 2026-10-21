@@ -21,7 +21,10 @@ namespace LiteMonitor
         private readonly MainFormBizHelper _bizHelper;
         private readonly int _wmTaskbarCreated;
         private const int WM_DISPLAYCHANGE = 0x007E;
-        private CancellationTokenSource _displayChangeCts;
+        private const int WM_POWERBROADCAST = 0x0218;
+        private const int PBT_APMRESUMESUSPEND = 0x0007;
+        private const int PBT_APMRESUMEAUTOMATIC = 0x0012;
+        private CancellationTokenSource? _displayChangeCts;
 
         private Point _dragOffset;
         private bool _uiDragging = false;
@@ -259,6 +262,15 @@ namespace LiteMonitor
                 }
             }
 
+            if (m.Msg == WM_POWERBROADCAST &&
+                (m.WParam.ToInt32() == PBT_APMRESUMESUSPEND ||
+                 m.WParam.ToInt32() == PBT_APMRESUMEAUTOMATIC))
+            {
+                // Modern Standby 唤醒后，任务栏根 HWND 往往仍有效，
+                // 但其子窗口、Z 序和显示器坐标已经被重建。
+                _taskbar?.RequestTaskbarRecovery();
+            }
+
             if (m.Msg == WM_DISPLAYCHANGE)
             {
                 // [Fix #288] 分辨率改变后，延迟执行位置恢复，确保 Screen.AllScreens 已完全更新
@@ -274,7 +286,9 @@ namespace LiteMonitor
                         this.BeginInvoke(new Action(() =>
                         {
                             _bizHelper?.RestorePos();
-                            // 显示模式已经回来时立刻抬一次。合成层若稍后再建，Tick 还会再抬。
+                            // [PR #555] 显示拓扑变化后进入 10 秒恢复期，强制重新挂载任务栏
+                            _taskbar?.RequestTaskbarRecovery();
+                            // [Fix #600] 显示模式已经回来时立刻抬一次。合成层若稍后再建，Tick 还会再抬。
                             _taskbar?.EnsureAboveCompositionBridge();
                         }));
                     }
@@ -297,6 +311,7 @@ namespace LiteMonitor
             base.OnDpiChanged(e);
             _ui?.ApplyTheme(_cfg.Skin);
             _winHelper.ApplyRoundedCorners();
+            _taskbar?.RequestTaskbarRecovery();
             this.Invalidate();
         }
 

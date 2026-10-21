@@ -23,6 +23,7 @@ namespace LiteMonitor
         private List<Column>? _cols;
         private ContextMenuStrip? _currentMenu;
         private DateTime _lastFindHandleTime = DateTime.MinValue;
+        private DateTime _recoveryEndTime = DateTime.Now.AddSeconds(10);
         private string _lastLayoutSignature = "";
         private readonly TaskbarTooltipHelper _tooltipHelper;
         
@@ -60,9 +61,8 @@ namespace LiteMonitor
             ReloadLayout();
 
             _bizHelper.CheckTheme(true);
-            _bizHelper.FindHandles();
-            
-            _bizHelper.AttachToTaskbar();
+            _bizHelper.RecoverTaskbarIntegration();
+            _lastFindHandleTime = DateTime.Now;
             _winHelper.ApplyLayeredStyle(_bizHelper.TransparentKey, _cfg.TaskbarClickThrough);
 
             _timer.Interval = CalcRefreshInterval();
@@ -83,6 +83,16 @@ namespace LiteMonitor
                 || (_cfg.AutoPowerSaveOnBattery && System.Windows.Forms.SystemInformation.PowerStatus.PowerLineStatus == System.Windows.Forms.PowerLineStatus.Offline);
             int eff = powerSave ? Math.Max(baseMs, 3000) : baseMs;
             return Math.Max(60, eff);
+        }
+
+        // [PR #555] 唤醒/登录/显示拓扑变化后请求任务栏恢复
+        public void RequestTaskbarRecovery()
+        {
+            if (IsDisposed) return;
+
+            // 覆盖登录、唤醒或显示拓扑变化后 Explorer 重建任务栏子窗口的时间段。
+            _recoveryEndTime = DateTime.Now.AddSeconds(10);
+            _lastFindHandleTime = DateTime.MinValue;
         }
 
         public void ReloadLayout()
@@ -191,15 +201,17 @@ namespace LiteMonitor
             // 驱动热更新后合成层会盖住监控条，父句柄仍然有效。每次刷新都校正一次 Z 序。
             _winHelper.EnsureAboveCompositionBridge();
 
-            // [Fix] 周期性检查句柄，防止 Explorer 重启后句柄失效
-            // 优化：仅在重试期或句柄无效时调用 FindHandles，且限制调用频率
-            bool isHandleInvalid = !_bizHelper.IsTaskbarValid();
+            // [PR #555] 恢复期内即使旧的任务栏根 HWND 仍有效，也要重新查找并挂载。
+            // Explorer 经常保留根 HWND，却在其下重建子层级和显示坐标。
+            DateTime now = DateTime.Now;
+            bool isInRecoveryPeriod = now < _recoveryEndTime;
+            bool isIntegrationInvalid = !_bizHelper.IsTaskbarIntegrationValid();
             
-            // 如果处于重试期，或者句柄无效且距离上次查找超过2秒(防止无Explorer时高频空转)
-            if (isHandleInvalid && (DateTime.Now - _lastFindHandleTime).TotalSeconds > 2)
+            if ((isInRecoveryPeriod || isIntegrationInvalid) &&
+                (now - _lastFindHandleTime).TotalSeconds > 2)
             {
-                _bizHelper.FindHandles();
-                _lastFindHandleTime = DateTime.Now;
+                _bizHelper.RecoverTaskbarIntegration();
+                _lastFindHandleTime = now;
             }
 
             if (Math.Abs(Environment.TickCount) % 5000 < _cfg.RefreshMs) _bizHelper.CheckTheme();

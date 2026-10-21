@@ -92,6 +92,18 @@
 - **#373 全屏置顶守护（2 冲突，手工三方合并）**：`MainFormWinHelper` 新增 `ReapplyTopMost()`（无条件 `SetWindowPos(HWND_TOPMOST)`，应对全屏应用中 `WS_EX_TOPMOST` 标志仍在但窗口实被覆盖的场景）；`MainForm_Transparent` 新增 3 秒 `_topMostGuardTimer` 守护 + `OnFormClosed` 清理。**冲突解决策略：保留本地全部定制，叠加 PR 功能**——① Win32 常量区取本地超集（`HWND_NOTOPMOST` / `SWP_NOOWNERZORDER` 保留）；② 本地「启动 3 秒后 `RefreshTopMost(forceReinsert)`」与 PR 守护**并存**（轻量周期性置顶与强 Z 序重插互补）；③ `OnFormClosed` 保留本地 `HardwareHistoryLogger.Save()`（PR 基础版本较旧没有此行，直接采用会丢历史落盘）。
 - **合并坑记录**：ort 策略对「同行常量换位」误判——`WS_EX_TOPMOST` 在本地位于常量区首位、PR 分支位于末尾，自动合并后头尾各留一份导致 `CS0102` 重复定义，删末尾重复项解决（编译 0 错误后 amend 合并提交）。
 
+### 3.7 上游 PR 补充集成：#555 唤醒/登录后任务栏恢复（2026-10-21）
+
+二轮调研中定位的「最大遗珠」（引用 5 个 issue 的高频问题：笔记本唤醒后任务栏监控条不恢复）。在实验分支 `exp/pr-555` 上集成、编译验证后合入 `custom`（合并提交 `1e1a428`）。5 文件 +150/-27，3 处冲突全部手工三方解，策略仍是「**保留本地全部定制 + 叠加 PR 功能**」：
+
+- **`TaskbarBizHelper`**：新增 `IsTaskbarIntegrationValid()`（根句柄有效 **且** 父子挂载关系有效）与 `RecoverTaskbarIntegration()`（作废坐标缓存 → 重新查找句柄 → 重新挂载 → 更新任务栏矩形）。直接采用，无冲突。
+- **`TaskbarStrategyWin10`**：`IsReady` 增加 `IsWindow` 复核（句柄存在但窗口已销毁时不再误判就绪）；`InitializeHandles` 在 ReBar/MSTask 句柄变化时重置挤压缓存（避免 Explorer 重建后用旧宽度继续挤压）。直接采用，无冲突。
+- **`TaskbarWinHelper`（2 冲突）**：① Win32 常量区取本地超集（保留 `GW_CHILD` / `GW_HWNDNEXT` / #600 的 `CompositionBridgeClass`）；② `GetTaskbarRect` 悬浮模式高度计算**融合两侧**——保留本地 #300 的 `Win11TaskbarHeight` 可配置项，DPI 来源换用 PR 新提出的 `taskbarDpi`（按传入任务栏句柄取 DPI，比本地全局查找 `Shell_TrayWnd` 在多屏下更精准）。缓存 key 由「仅物理矩形」扩展为「句柄 + 设备名 + 物理矩形 + 屏幕边界 + 工作区 + DPI」六项，修掉「显示器/DPI 变化后旧坐标用到重启」的独立 bug。
+- **`MainForm_Transparent`（1 冲突）**：`WM_POWERBROADCAST`（`PBT_APMRESUMESUSPEND` / `PBT_APMRESUMEAUTOMATIC`）触发 `RequestTaskbarRecovery()`；`WM_DISPLAYCHANGE` 防抖恢复与 `OnDpiChanged` 均追加恢复请求（后两者无冲突自动合入）。冲突块处**两者并存**：PR 的 `RequestTaskbarRecovery()` + 本地 #600 的 `EnsureAboveCompositionBridge()`（显示模式回来立刻抬合成层，互补不互斥）。
+- **`TaskbarForm`（2 冲突）**：构造改调 `RecoverTaskbarIntegration()`（替代原 `FindHandles` + `AttachToTaskbar` 两步）；`Tick()` 的句柄巡检从「仅根句柄无效」升级为「**10 秒恢复期内或挂载关系无效**」才重挂载（2 秒频率限制保留）。冲突块处本地定制全部保留：省电模式 `CalcRefreshInterval()`、#600 的每帧 `EnsureAboveCompositionBridge()` 与 PR 恢复机制并存。
+
+> 依赖核查：PR 复用的 `GetExpectedParent`（策略接口 + Win10/Win11 双实现）为基线代码已有；`EnsureAboveCompositionBridge` 为本地 #600 新增（返回 `bool`）。合并后双向语义核查通过（本地 6 项定制存活、PR 5 类机制落地），编译 0 错误 / 233 警告。**待实机验证：睡眠唤醒后监控条是否在约 10 秒内自动恢复**（headless 环境无法实测电源事件）。
+
 ## 四、后续借鉴上游修正的约定
 
 - **渠道**：`git fetch upstream` 后查看 `upstream/master` 的新提交。
@@ -141,6 +153,7 @@ custom   (维护主线)   ←── 本分支（独立演进）
       ├─ 功能调整与防御性加固（3.5）             [本地主动变更: 历史可配置/省电/快速启动/省流量测速/数据有效性]
       ├─ 上游 PR #364 自定义传感器 ID            [已合入, 0 冲突]
       ├─ 上游 PR #373 全屏置顶守护               [已合入, 手工解 2 冲突: 保留本地定制+叠加守护定时器]
+      ├─ 上游 PR #555 唤醒/登录任务栏恢复         [已合入, 手工解 3 冲突: 保留本地定制+叠加恢复机制]
       └─ 10 个上游 PR 集成（合并提交 4e16e7d）   [已合入, 实验分支 exp/pr-survey 已删远程仅本地保留]
 ```
 

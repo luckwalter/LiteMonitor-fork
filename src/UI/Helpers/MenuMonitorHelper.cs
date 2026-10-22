@@ -25,11 +25,8 @@ namespace LiteMonitor.src.UI.Helpers
             {
                 try
                 {
-                    using (var f = new LiteMonitor.src.UI.SettingsForm(cfg, ui, form))
-                    {
-                        f.SwitchPage("Plugins"); 
-                        f.ShowDialog(form);
-                    }
+                    // 单例打开：已打开则激活并切到插件页，不重复开窗
+                    LiteMonitor.src.UI.SettingsForm.ShowSingleton(cfg, ui, form, "Plugins", modal: true, owner: form);
                 }
                 catch (Exception ex)
                 {
@@ -55,11 +52,8 @@ namespace LiteMonitor.src.UI.Helpers
                 {
                     try
                     {
-                        using (var f = new LiteMonitor.src.UI.SettingsForm(cfg, ui, form))
-                        {
-                            f.SwitchPage("System"); // 跳转到可以设置最大值的页面
-                            f.ShowDialog(form);
-                        }
+                        // 单例打开：已打开则激活并跳到系统页，不重复开窗
+                        LiteMonitor.src.UI.SettingsForm.ShowSingleton(cfg, ui, form, "System", modal: true, owner: form);
                     }
                     catch (Exception ex)
                     {

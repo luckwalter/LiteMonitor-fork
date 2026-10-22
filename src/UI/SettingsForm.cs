@@ -61,6 +61,39 @@ namespace LiteMonitor.src.UI
             InitPages(); 
         }
 
+        /// <summary>
+        /// [Fix] 单例打开设置面板：已打开则激活已有窗口（含从最小化恢复）并按需切换页面，不再重复新建。
+        /// 统一托盘右键菜单 / 监控项菜单 / 任务栏双击等全部入口，避免同一设置面板开出多个窗口。
+        /// </summary>
+        /// <param name="modal">true 时以模态打开（owner 必传），false 时非模态</param>
+        public static void ShowSingleton(Settings cfg, UIController ui, MainForm mainForm,
+            string? targetPage = null, bool modal = false, Form? owner = null)
+        {
+            foreach (Form f in Application.OpenForms)
+            {
+                if (f is SettingsForm existing)
+                {
+                    if (existing.WindowState == FormWindowState.Minimized)
+                        existing.WindowState = FormWindowState.Normal;
+                    if (!string.IsNullOrEmpty(targetPage))
+                        existing.SwitchPage(targetPage);
+                    existing.Activate();
+                    return;
+                }
+            }
+
+            var form = new SettingsForm(cfg, ui, mainForm);
+            if (!string.IsNullOrEmpty(targetPage)) form.SwitchPage(targetPage);
+            if (modal)
+            {
+                using (form) form.ShowDialog(owner);
+            }
+            else
+            {
+                form.Show();
+            }
+        }
+
         private void InitializeComponent()
         {
             UIUtils.ScaleFactor = this.DeviceDpi / 96f;

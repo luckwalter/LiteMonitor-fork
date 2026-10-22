@@ -450,12 +450,8 @@ namespace LiteMonitor
             {
                 try
                 {
-                    // 打开设置窗口
-                    using (var f = new LiteMonitor.src.UI.SettingsForm(cfg, ui, form))
-                    {
-                        if (!string.IsNullOrEmpty(targetPage)) f.SwitchPage(targetPage);
-                        f.ShowDialog(form);
-                    }
+                    // 打开设置窗口（单例：已打开则激活，不重复开窗）
+                    LiteMonitor.src.UI.SettingsForm.ShowSingleton(cfg, ui, form, targetPage, modal: true, owner: form);
                 }
                 catch (Exception ex)
                 {

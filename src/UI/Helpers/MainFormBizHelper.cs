@@ -350,8 +350,8 @@ namespace LiteMonitor.src.UI.Helpers
 
         public void OpenSettings()
         {
-            foreach (Form f in Application.OpenForms) { if (f is SettingsForm) { f.Activate(); return; } }
-            new SettingsForm(_cfg, _ui, (MainForm)_form).Show();
+            // [Fix] 统一走单例入口：已打开则激活（含最小化恢复），不再重复新建
+            SettingsForm.ShowSingleton(_cfg, _ui, (MainForm)_form);
         }
 
         public void OpenTrafficHistory()
